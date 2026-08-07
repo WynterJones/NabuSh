@@ -5,19 +5,24 @@ same Dockerfile**, and differ only by the `NABU_MODE` environment variable.
 
 ## Why the healthcheck is not in `railway.json`
 
-Railway looks for a single `railway.json` at the repo root and applies it to
-**every service built from that repo**. There is no per-service config path.
+By default Railway reads a single `railway.json` at the repo root and applies it
+to **every service built from that repo**.
 
 The worker has no HTTP server. If `healthcheckPath` lived in `railway.json`, the
 worker would inherit it, never pass, and Railway would mark a perfectly healthy
 worker as a failed deploy — on every push, forever.
 
 So `railway.json` carries only what is true for both services (Dockerfile
-builder, restart policy). The healthcheck is set **on the web service only**,
-in Railway's service settings:
+builder, restart policy). The healthcheck is set **on the web service only**:
 
 - Healthcheck path: `/api/health`
 - Healthcheck timeout: `120`
+
+> A per-service config path *is* possible — the API exposes `railwayConfigFile`
+> on a service instance, so one service can be pointed at `railway.web.json` and
+> another at `railway.worker.json`. It isn't covered in the config-as-code docs.
+> We don't use it here: these services are image-sourced, so their settings live
+> on the service (and get captured by the template) rather than in the repo.
 
 ## Service configuration
 
