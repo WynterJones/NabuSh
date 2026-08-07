@@ -46,6 +46,12 @@ only "hidden registry credentials in use".
 > nothing to rotate or break. Once licensing is switched on, the licence key is
 > the paywall rather than image obscurity — which is how most commercial
 > self-hosted products work.
+>
+> There is **no API for this** — it is UI-only, at
+> `https://github.com/users/<user>/packages/container/<package>/settings` →
+> Danger Zone → Change visibility. And per GitHub: *"Once you make a package
+> public, you cannot make it private again."* The only way back is to delete the
+> package and republish under a different name.
 
 ## Service configuration
 
