@@ -24,6 +24,29 @@ builder, restart policy). The healthcheck is set **on the web service only**:
 > We don't use it here: these services are image-sourced, so their settings live
 > on the service (and get captured by the template) rather than in the repo.
 
+## Registry credentials (required for the private image)
+
+Both app services pull `ghcr.io/wynterjones/nabush:latest`, which is a **private**
+package. Railway cannot pull it until credentials are set on each service:
+
+- Username: `WynterJones`
+- Password: a GitHub **classic PAT with only the `read:packages` scope**
+
+Create it at <https://github.com/settings/tokens> → *Generate new token
+(classic)*. Do not reuse the `gh` CLI's OAuth token — it rotates, and Railway
+would start failing to pull without warning.
+
+Set it per service: **Settings → Source → Docker image → registry credentials**.
+Railway encrypts and stores it, and anyone deploying the template later sees
+only "hidden registry credentials in use".
+
+> **Alternative:** make the GHCR *package* public while keeping the repo private.
+> Package visibility is independent of repo visibility, so the source stays
+> closed and only the compiled image is pullable. No credentials anywhere, and
+> nothing to rotate or break. Once licensing is switched on, the licence key is
+> the paywall rather than image obscurity — which is how most commercial
+> self-hosted products work.
+
 ## Service configuration
 
 ### `Postgres`
