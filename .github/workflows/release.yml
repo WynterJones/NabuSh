@@ -37,10 +37,17 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # Two moving tags, deliberately separate:
+          #   :latest — moves on every push to main. Your own testing only.
+          #   :stable — moves ONLY when you push a v* tag. This is what customer
+          #             installs track, so a commit to main can never ship to them.
+          # Never point a customer service at :latest.
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=semver,pattern=v{{version}}
             type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
             type=sha,format=short
 
       # Railway runs linux/amd64. Building here rather than on an arm64 Mac
