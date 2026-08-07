@@ -88,6 +88,57 @@ No domain. No healthcheck.
 That's why the worker references `${{web.NABU_SECRET}}` rather than generating
 its own — Railway resolves it to the same value.
 
+## How customers get updates
+
+**Railway's "template updated" notifications do not apply here.** That feature
+only works for services deployed from a GitHub repo. Our template's services are
+Docker-image-based, so publishing a new template version notifies nobody.
+
+The mechanism that *does* work for image services is **Image Auto Updates**:
+
+- Service → **Settings → Source → Configure Auto Updates**
+- Railway watches the configured tag, notices a new digest, and redeploys
+- Detection is cached for **up to a few hours** — it is not instant
+- Supported for GHCR and Docker Hub only
+- Workspace admins get a notification when an update is applied
+- On Pro, Railway takes a volume backup before redeploying
+
+It is **not exposed in the public GraphQL API** (`ServiceInstance` has no field
+for it), so it has to be toggled in the dashboard — set it on both services in
+this project before generating the template so customer installs inherit it.
+
+### The release flow
+
+```
+commit to main   ->  :latest moves        ->  nobody is affected
+git tag v1.1.0   ->  :stable moves        ->  customers auto-update within hours
+                     (+ :v1, :v1.1, :v1.1.0)
+```
+
+Customer services track **`:stable`**. Pushing to `main` cannot reach them. A
+release is exactly one deliberate act: `git tag -a v1.1.0 && git push --tags`.
+
+### What happens on a customer's box during an update
+
+1. Railway pulls the new image and restarts the service.
+2. The container runs migrations on boot, under a Postgres advisory lock, so web
+   and worker can restart together without racing.
+3. The worker catches `SIGTERM` and drains in-flight runs for up to 30s before
+   exiting, so an update doesn't kill a report mid-write.
+
+### Risks worth respecting
+
+- **Auto-update plus auto-migrate means a bad migration reaches every customer
+  with no gate.** There is no staging environment between your `git tag` and
+  their production. Test with `docker compose up` locally against a copy of a
+  realistic database *before* tagging.
+- **Migrations are forward-only.** Drizzle generates no down-migrations, and
+  Railway can roll back an image but not a schema. Prefer additive changes: add
+  nullable columns, never rename or drop in the same release that stops using
+  them. Split destructive changes across two releases.
+- **Never point a customer service at `:latest`.** With auto-updates on, every
+  commit to main would ship to production.
+
 ## Turning this project into a one-click template
 
 Railway templates can only be created through the dashboard; there is no
