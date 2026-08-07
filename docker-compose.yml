@@ -1,0 +1,53 @@
+# Nabu — self-hosting on your own machine or VPS.
+#
+# 1. Copy .env.example to .env and set NABU_SECRET (openssl rand -hex 32).
+# 2. docker compose up -d
+# 3. Open http://localhost:3000 and create your account.
+#
+# For Railway, use the one-click template instead — it wires all of this up.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nabu
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nabu}
+      POSTGRES_DB: nabu
+    volumes:
+      - nabu_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nabu"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    image: ghcr.io/nabu-sh/nabu:latest
+    restart: unless-stopped
+    environment:
+      NABU_MODE: web
+      DATABASE_URL: postgresql://nabu:${POSTGRES_PASSWORD:-nabu}@postgres:5432/nabu
+      NABU_SECRET: "${NABU_SECRET:?set NABU_SECRET in .env — generate one with openssl rand -hex 32}"
+      # Running over plain HTTP on a LAN? Uncomment so the session cookie is sent.
+      # NABU_ALLOW_HTTP: "true"
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    image: ghcr.io/nabu-sh/nabu:latest
+    restart: unless-stopped
+    environment:
+      NABU_MODE: worker
+      DATABASE_URL: postgresql://nabu:${POSTGRES_PASSWORD:-nabu}@postgres:5432/nabu
+      NABU_SECRET: "${NABU_SECRET:?set NABU_SECRET in .env — it must match the web service}"
+      NABU_MAX_CONCURRENT_RUNS: "3"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  nabu_data:
